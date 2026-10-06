@@ -150,3 +150,7 @@ vite.config.ts.timestamp-*
 
 #IDE
 .idea
+
+
+# React Router generated types
+.react-router/

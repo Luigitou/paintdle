@@ -15,9 +15,8 @@ RUN pnpm install --frozen-lockfile
 # ──────────────────────────────────────────────────────────
 FROM deps AS development
 COPY . .
-EXPOSE 5173
-# --host: listen on 0.0.0.0, otherwise Vite is unreachable from outside the container
-CMD ["pnpm", "dev", "--host"]
+EXPOSE 3000
+CMD ["pnpm", "start:dev"]
 
 # ──────────────────────────────────────────────────────────
 # PROD
@@ -35,7 +34,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY package.json ./
 COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=build /app/build ./build
+COPY --from=build /app/dist ./dist
 USER node
 EXPOSE 3000
-CMD ["node_modules/.bin/react-router-serve", "./build/server/index.js"]
+CMD ["node", "dist/main.js"]

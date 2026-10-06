@@ -1,0 +1,44 @@
+services:
+  # ──────────────────────────────────────────────────────────
+  # PROD – Deployed version
+  # ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      target: production
+    image: paintdle-api:prod
+    container_name: paintdle-api
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
+    restart: unless-stopped
+    networks:
+      - paintdle
+      - db_net
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      target: production
+    image: paintdle-client:prod
+    container_name: paintdle-client
+    ports:
+      - "${CLIENT_PORT}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - API_URL=http://api:3000
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - paintdle
+
+networks:
+  paintdle:
+    driver: bridge
+  db_net:
+    external: true

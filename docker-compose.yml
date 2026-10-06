@@ -1,2 +1,71 @@
 services:
-  
+  # ──────────────────────────────────────────────────────────
+  # DEV – local stack with its own postgres
+  # ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      target: development
+    image: paintdle-api:dev
+    container_name: paintdle-api-dev
+    ports:
+      - "${API_PORT}:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - paintdle
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      target: development
+    image: paintdle-client:dev
+    container_name: paintdle-client-dev
+    ports:
+      - "${CLIENT_PORT}:5173"
+    environment:
+      - NODE_ENV=development
+      - API_URL=http://api:3000
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    networks:
+      - paintdle
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: paintdle-db-dev
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - paintdle
+
+networks:
+  paintdle:
+    driver: bridge
+
+volumes:
+  db-data:
