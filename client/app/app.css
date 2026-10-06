@@ -3,13 +3,50 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* Gallery neutrals: warm paper background, soft ink */
+  --color-canvas: #f6f4ef;
+  --color-surface: #ffffff;
+  --color-ink: #1c1a17;
+  --color-muted: #6f6a62;
+  --color-line: #e4e0d8;
+
+  /* Hint tiles: desaturated, painterly versions of the Wordle colors */
+  --color-tile-correct: #6f9a72;
+  --color-tile-close: #d2ad5a;
+  --color-tile-wrong: #c26a5a;
+
+  /* Tile reveal, like a Wordle row */
+  --animate-flip-in: flip-in 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+
+  @keyframes flip-in {
+    0% {
+      transform: rotateX(90deg);
+      opacity: 0;
+    }
+    100% {
+      transform: rotateX(0);
+      opacity: 1;
+    }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-canvas: #12110f;
+    --color-surface: #1c1b18;
+    --color-ink: #f2efe9;
+    --color-muted: #9a948a;
+    --color-line: #2c2a26;
+
+    --color-tile-correct: #7fa982;
+    --color-tile-close: #d9b766;
+    --color-tile-wrong: #cc7766;
+  }
 }
 
 html,
 body {
-  @apply bg-white dark:bg-gray-950;
-
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
-  }
+  @apply bg-canvas text-ink antialiased;
 }

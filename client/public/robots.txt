@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://paintdle.louis-bellefemine.com/sitemap.xml

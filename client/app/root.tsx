@@ -11,6 +11,9 @@ import type { Route } from "./+types/root";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+  { rel: "icon", href: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
@@ -28,7 +31,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* viewport-fit=cover: lets env(safe-area-inset-*) work on notched phones */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+        <meta name="robots" content="index, follow" />
+        {/* Browser UI color, matching --color-canvas in app.css */}
+        <meta
+          name="theme-color"
+          content="#f6f4ef"
+          media="(prefers-color-scheme: light)"
+        />
+        <meta
+          name="theme-color"
+          content="#12110f"
+          media="(prefers-color-scheme: dark)"
+        />
         <Meta />
         <Links />
       </head>
@@ -62,11 +81,19 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
+    <main className="flex min-h-dvh flex-col items-center justify-center px-6 py-12 text-center">
+      <h1 className="text-6xl font-semibold tracking-tight sm:text-8xl">
+        {message}
+      </h1>
+      <p className="mt-4 text-lg text-muted">{details}</p>
+      <a
+        href="/"
+        className="mt-8 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-canvas transition-opacity hover:opacity-80"
+      >
+        Back to home
+      </a>
       {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
+        <pre className="mt-10 w-full max-w-3xl overflow-x-auto rounded-2xl border border-line bg-surface p-4 text-left text-sm">
           <code>{stack}</code>
         </pre>
       )}
