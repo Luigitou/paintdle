@@ -1,0 +1,139 @@
+name: Production Deployment
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Triggers
+# Public repo + self-hosted runner: never add `pull_request` here,
+# it would let forks run code on the Pi.
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Allow manual trigger from the GitHub UI
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Prevent concurrent deployments (never cancel an in-progress deploy)
+# ─────────────────────────────────────────────────────────────────────────────
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+
+  # ── 1. Lint & test ───────────────────────────────────────────────────────
+  # Runs on a GitHub-hosted runner: free for public repos, keeps the Pi idle
+  quality:
+    name: 🔍 Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            api/pnpm-lock.yaml
+            client/pnpm-lock.yaml
+
+      - name: 📦 Install dependencies
+        run: |
+          pnpm --dir api install --frozen-lockfile
+          pnpm --dir client install --frozen-lockfile
+
+      - name: 🔎 API – Lint
+        working-directory: api
+        run: pnpm lint
+
+      - name: 🏷️ API – Type-check
+        working-directory: api
+        run: pnpm exec tsc --noEmit
+
+      - name: 🧪 API – Unit & e2e tests
+        working-directory: api
+        run: |
+          pnpm test
+          pnpm test:e2e
+
+      - name: 🏷️ Client – Type-check
+        working-directory: client
+        run: pnpm typecheck
+
+  # ── 2. Build & deploy on the Pi ──────────────────────────────────────────
+  deploy:
+    name: 🐳 Build & Deploy
+    runs-on: self-hosted # Runner registered on this repo only (louis-pi-paintdle)
+    needs: quality
+    environment: production
+
+    # Read by `docker compose` for file selection and ${...} interpolation
+    env:
+      COMPOSE_FILE: docker-compose.prod.yml
+      COMPOSE_PROJECT_NAME: paintdle
+      CLIENT_PORT: 3100            # Host port 3000 is already used on the Pi
+      POSTGRES_HOST: postgres_shared
+      POSTGRES_DB: paintdle
+      POSTGRES_USER: paintdle
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      # Native ARM64 build on the Pi, no registry needed
+      # --pull always fetches the latest base images (node:24-alpine)
+      - name: 🔨 Build production images
+        run: docker compose build --pull
+
+      # --force-recreate: always restart on the freshly built images,
+      # otherwise compose may keep containers running on the previous (untagged) ones
+      - name: 🔄 Start / recreate containers
+        run: docker compose up -d --force-recreate --remove-orphans
+
+      # Remove dangling layers left by the previous build to save disk space
+      - name: 🧹 Prune dangling images
+        run: docker image prune -f
+
+  # ── 3. Health check ──────────────────────────────────────────────────────
+  healthcheck:
+    name: ✅ Health Check
+    runs-on: self-hosted
+    needs: deploy
+    env:
+      CLIENT_PORT: 3100
+
+    steps:
+      # The API has no published port: check it from inside its container
+      - name: 🩺 Check client and API
+        run: |
+          for i in $(seq 1 10); do
+            if curl -sf "http://localhost:${CLIENT_PORT}" > /dev/null \
+              && docker exec paintdle-api wget -qO- http://localhost:3000 > /dev/null; then
+              echo "✅ Client and API are up"
+              exit 0
+            fi
+            echo "  attempt $i/10 – retrying in 3 s…"
+            sleep 3
+          done
+          echo "❌ Health check failed after 30 s"
+          docker logs paintdle-api --tail 50
+          docker logs paintdle-client --tail 50
+          exit 1
+
+      - name: 📣 Deployment summary
+        run: |
+          {
+            echo "### 🚀 Deployed successfully"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Commit** | \`${{ github.sha }}\` |"
+            echo "| **Triggered by** | @${{ github.actor }} |"
+            echo "| **Client** | http://localhost:${CLIENT_PORT} (on the Pi) |"
+          } >> "$GITHUB_STEP_SUMMARY"
